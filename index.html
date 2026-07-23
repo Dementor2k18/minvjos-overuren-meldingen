@@ -7,39 +7,65 @@
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
+    var eid = new URLSearchParams(window.location.search).get('eid');
+
     OneSignalDeferred.push(async function (OneSignal) {
       await OneSignal.init({ appId: "4022ec84-29c8-493f-a865-f3635303ee03" });
+      if (eid) {
+        await OneSignal.login(eid);
+      }
+      updateStatus();
+    });
 
-      var params = new URLSearchParams(window.location.search);
-      var eid = params.get('eid');
+    function updateStatus() {
       var statusEl = document.getElementById('status');
-
+      var btn = document.getElementById('enable-btn');
       if (!eid) {
         statusEl.textContent = 'Geen medewerker-ID meegegeven. Open deze pagina via de link in het presentiesysteem.';
+        btn.style.display = 'none';
         return;
       }
-
-      try {
-        await OneSignal.login(eid);
-        await OneSignal.Notifications.requestPermission();
-        if (OneSignal.Notifications.permission) {
-          statusEl.textContent = 'Meldingen zijn ingeschakeld. Je kan dit tabblad nu sluiten.';
-        } else {
-          statusEl.textContent = 'Meldingen zijn niet toegestaan. Zonder toestemming kun je geen "nog actief?"-meldingen ontvangen tijdens overuren.';
-        }
-      } catch (e) {
-        statusEl.textContent = 'Er ging iets mis bij het inschakelen van meldingen. Probeer deze pagina opnieuw te openen.';
+      if (window.OneSignal && OneSignal.Notifications && OneSignal.Notifications.permission) {
+        statusEl.textContent = 'Meldingen zijn al ingeschakeld. Je kan dit tabblad sluiten.';
+        btn.style.display = 'none';
+      } else {
+        statusEl.textContent = 'Klik hieronder om meldingen in te schakelen voor overuren-check-ins.';
+        btn.style.display = 'inline-block';
       }
-    });
+    }
+
+    // BELANGRIJK: Safari staat alleen een meldingsprompt toe als die het
+    // DIRECTE gevolg is van een klik — vandaar een expliciete knop in
+    // plaats van automatisch vragen bij het laden van de pagina.
+    function enableNotifications() {
+      OneSignalDeferred.push(async function (OneSignal) {
+        try {
+          await OneSignal.Notifications.requestPermission();
+          updateStatus();
+          if (OneSignal.Notifications.permission) {
+            document.getElementById('status').textContent = 'Gelukt! Meldingen zijn ingeschakeld. Je kan dit tabblad sluiten.';
+          } else {
+            document.getElementById('status').textContent = 'Meldingen zijn niet toegestaan. Zonder toestemming ontvang je geen "nog actief?"-meldingen tijdens overuren.';
+          }
+        } catch (e) {
+          document.getElementById('status').textContent = 'Er ging iets mis. Probeer deze pagina opnieuw te openen.';
+        }
+      });
+    }
   </script>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; padding: 60px 24px; background: #F4F1E8; color: #16150F; }
     h1 { font-size: 20px; }
-    p { font-size: 15px; color: #444; max-width: 420px; margin: 16px auto 0; line-height: 1.5; }
+    p { font-size: 15px; color: #444; max-width: 420px; margin: 16px auto 24px; line-height: 1.5; }
+    button {
+      font-family: inherit; font-size: 16px; font-weight: 700; padding: 14px 28px;
+      border: none; border-radius: 10px; background: #16150F; color: #fff; cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <h1>Ministerie van Jeugdontwikkeling en Sport</h1>
-  <p id="status">Meldingen worden ingeschakeld...</p>
+  <p id="status">Laden...</p>
+  <button id="enable-btn" style="display:none;" onclick="enableNotifications()">Meldingen inschakelen</button>
 </body>
 </html>
